@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useCallback } from "react";
 import InstagramTab from "@/components/InstagramTab";
+import AudienceTab from "@/components/AudienceTab";
 
 // ── Constants ──
 const COUNTRY_NAMES: Record<string, string> = { CL:"Chile",MX:"Mexico",CO:"Colombia",ES:"España",US:"USA",AR:"Argentina",PE:"Peru",EC:"Ecuador",BR:"Brasil",UY:"Uruguay",PY:"Paraguay",DO:"Rep.Dom",CR:"Costa Rica",PA:"Panama",GT:"Guatemala" };
@@ -124,7 +125,7 @@ export default function Dashboard() {
 
   const trendDir = (curV:string,compV:string,invert=false)=>{const c=parseFloat(curV),p=parseFloat(compV);if(!p)return null;return invert?(c<p?"up":"down"):(c>p?"up":"down");};
 
-  const tabs=[{id:"overview",label:"Overview",icon:"📊"},{id:"campaigns",label:"Campañas",icon:"🎯"},{id:"creatives",label:"Creativos",icon:"🎨"},{id:"funnel",label:"Funnel",icon:"🔻"},{id:"countries",label:"Países",icon:"🌎"},{id:"instagram",label:"Instagram",icon:"📸"},{id:"scripts",label:"Guiones",icon:"📝"},{id:"actions",label:`Log (${actionLog.length})`,icon:"⚡"}];
+  const tabs=[{id:"overview",label:"Overview",icon:"📊"},{id:"campaigns",label:"Campañas",icon:"🎯"},{id:"creatives",label:"Creativos",icon:"🎨"},{id:"audience",label:"Audiencia",icon:"👥"},{id:"funnel",label:"Funnel",icon:"🔻"},{id:"countries",label:"Países",icon:"🌎"},{id:"instagram",label:"Instagram",icon:"📸"},{id:"scripts",label:"Guiones",icon:"📝"},{id:"actions",label:`Log (${actionLog.length})`,icon:"⚡"}];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white">
@@ -431,6 +432,9 @@ export default function Dashboard() {
             </table>
           </div>
         )}
+
+        {/* ═══ AUDIENCE ═══ */}
+        {tab==="audience"&&(<AudienceTab />)}
 
         {/* ═══ INSTAGRAM ═══ */}
         {tab==="instagram"&&(

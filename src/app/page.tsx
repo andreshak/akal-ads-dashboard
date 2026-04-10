@@ -48,6 +48,13 @@ export default function Dashboard() {
   const [notes, setNotes] = useState<Record<string,string>>({});
   const [noteInput, setNoteInput] = useState("");
   const [noteTarget, setNoteTarget] = useState<string|null>(null);
+  const [igData, setIgData] = useState<any>(null);
+  const [igLoading, setIgLoading] = useState(false);
+  const [igFilter, setIgFilter] = useState("ALL");
+  const [scripts, setScripts] = useState<any>(null);
+  const [scriptTemplate, setScriptTemplate] = useState("HOOK_PREGUNTA");
+  const [scriptTheme, setScriptTheme] = useState("");
+  const [scriptLoading, setScriptLoading] = useState(false);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -103,7 +110,7 @@ export default function Dashboard() {
 
   const trendDir = (curV:string,compV:string,invert=false)=>{const c=parseFloat(curV),p=parseFloat(compV);if(!p)return null;return invert?(c<p?"up":"down"):(c>p?"up":"down");};
 
-  const tabs=[{id:"overview",label:"Overview",icon:"📊"},{id:"campaigns",label:"Campañas",icon:"🎯"},{id:"creatives",label:"Creativos",icon:"🎨"},{id:"funnel",label:"Funnel",icon:"🔻"},{id:"countries",label:"Países",icon:"🌎"},{id:"actions",label:`Log (${actionLog.length})`,icon:"⚡"}];
+  const tabs=[{id:"overview",label:"Overview",icon:"📊"},{id:"campaigns",label:"Campañas",icon:"🎯"},{id:"creatives",label:"Creativos",icon:"🎨"},{id:"funnel",label:"Funnel",icon:"🔻"},{id:"countries",label:"Países",icon:"🌎"},{id:"instagram",label:"Instagram",icon:"📸"},{id:"scripts",label:"Guiones",icon:"📝"},{id:"actions",label:`Log (${actionLog.length})`,icon:"⚡"}];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-900 to-gray-800 text-white">
@@ -411,6 +418,191 @@ export default function Dashboard() {
           </div>
         )}
 
+        {/* ═══ INSTAGRAM ═══ */}
+        {tab==="instagram"&&(
+          <div>
+            {!igData&&!igLoading&&(
+              <div className="text-center py-12">
+                <p className="text-4xl mb-4">📸</p>
+                <p className="text-gray-400 mb-4">Analiza tus Reels de Instagram para encontrar contenido ganador para ads</p>
+                <button onClick={async()=>{setIgLoading(true);try{const r=await fetch("/api/meta/instagram?limit=50");const d=await r.json();setIgData(d);}catch(e:any){alert(e.message);}setIgLoading(false);}} className="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-xl font-medium">Cargar Datos de Instagram</button>
+              </div>
+            )}
+            {igLoading&&<div className="text-center py-12"><div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-500 mx-auto mb-4"/><p className="text-gray-400">Analizando {'>'}50 publicaciones con insights...</p></div>}
+            {igData&&(
+              <>
+                {/* IG Account Header */}
+                <div className="flex justify-between items-center mb-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-3xl">📸</span>
+                    <div><p className="font-bold text-lg">@{igData.account?.username}</p><p className="text-gray-400 text-sm">{igData.account?.followers?.toLocaleString()} seguidores · {igData.account?.mediaCount?.toLocaleString()} posts</p></div>
+                  </div>
+                  <div className="flex gap-2 items-center">
+                    <select value={igFilter} onChange={e=>setIgFilter(e.target.value)} className="bg-gray-700/50 border border-gray-600 rounded-lg px-2 py-1 text-xs">
+                      <option value="ALL">Todas las tematicas</option>
+                      {igData.themes&&Object.keys(igData.themes).sort().map((t:string)=><option key={t} value={t}>{t} ({igData.themes[t].count})</option>)}
+                    </select>
+                    <button onClick={()=>{setTab("scripts");setScriptTheme(igFilter!=="ALL"?igFilter:"");}} className="bg-green-600 hover:bg-green-700 px-3 py-1.5 rounded-lg text-xs font-medium">📝 Generar Guiones</button>
+                  </div>
+                </div>
+
+                {/* Theme Summary */}
+                {igData.themes&&(
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-5">
+                    {Object.entries(igData.themes).sort((a:any,b:any)=>b[1].avgSaves-a[1].avgSaves).map(([theme,info]:any)=>(
+                      <div key={theme} onClick={()=>setIgFilter(theme)} className={`p-3 rounded-xl border cursor-pointer transition hover:bg-gray-700/50 ${igFilter===theme?"border-purple-500 bg-purple-500/10":"border-gray-700/50 bg-gray-800/60"}`}>
+                        <p className="text-xs font-medium">{theme}</p>
+                        <p className="text-sm mt-1">{info.count} posts · <span className="text-yellow-400">{info.avgSaves} saves avg</span></p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Posts Table */}
+                <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-gray-400 text-xs border-b border-gray-700/50">
+                      <th className="text-left p-3">Contenido</th><th className="p-2">Tema</th><th className="text-right p-2">Reach</th><th className="text-right p-2">Likes</th><th className="text-right p-2">Comm</th><th className="text-right p-2">Saves</th><th className="text-right p-2">Shares</th><th className="text-right p-2">Eng%</th><th className="p-2">Potencial</th><th className="p-2">Link</th>
+                    </tr></thead>
+                    <tbody>
+                      {(igData.posts||[]).filter((p:any)=>igFilter==="ALL"||p.theme===igFilter).map((p:any,i:number)=>{
+                        const potColor=p.adPotential==="ESTRELLA"?"text-green-400":p.adPotential==="ALTO"?"text-blue-400":p.adPotential==="MEDIO"?"text-yellow-400":"text-gray-500";
+                        return(
+                          <tr key={i} className="border-t border-gray-700/30 hover:bg-gray-700/20">
+                            <td className="p-3 max-w-xs"><p className="font-medium text-sm truncate">{p.hook||p.caption?.substring(0,80)}</p><p className="text-gray-500 text-xs">{p.date?.substring(0,10)}</p></td>
+                            <td className="p-2"><Badge text={p.theme} color="bg-gray-600/50 text-gray-300"/></td>
+                            <td className="p-2 text-right">{p.reach?.toLocaleString()}</td>
+                            <td className="p-2 text-right">{p.likes}</td>
+                            <td className="p-2 text-right">{p.comments}</td>
+                            <td className="p-2 text-right font-bold text-yellow-400">{p.saves}</td>
+                            <td className="p-2 text-right text-cyan-400">{p.shares}</td>
+                            <td className="p-2 text-right font-bold">{p.engagementRate}%</td>
+                            <td className="p-2"><span className={`text-xs font-bold ${potColor}`}>{p.adPotential==="ESTRELLA"?"⭐":"" } {p.adPotential}</span></td>
+                            <td className="p-2"><a href={p.permalink} target="_blank" className="text-blue-400 hover:text-blue-300">↗</a></td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* ═══ SCRIPT GENERATOR ═══ */}
+        {tab==="scripts"&&(
+          <div>
+            <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-6 mb-5">
+              <h3 className="text-lg font-bold mb-4">📝 Generador de Guiones para Reels</h3>
+              <p className="text-gray-400 text-sm mb-4">Genera guiones basados en tu contenido con mejor rendimiento. Elige una estructura y tematica.</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                {/* Template Selection */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Estructura del guion</label>
+                  <select value={scriptTemplate} onChange={e=>setScriptTemplate(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                    <option value="HOOK_PREGUNTA">🔍 Hook con Pregunta</option>
+                    <option value="HOOK_AFIRMACION">💪 Hook con Afirmacion Fuerte</option>
+                    <option value="HOOK_HISTORIA">📖 Hook con Historia/Caso</option>
+                    <option value="HOOK_LISTA">📋 Hook con Lista/Pasos</option>
+                  </select>
+                </div>
+
+                {/* Theme Selection */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Tematica</label>
+                  <select value={scriptTheme} onChange={e=>setScriptTheme(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                    <option value="">Basado en Top Posts</option>
+                    <option value="CANCER">Cancer / Sanacion</option>
+                    <option value="INFLAMACION">Inflamacion / Cuerpo</option>
+                    <option value="AGUA_DE_MAR">Agua de Mar</option>
+                    <option value="INCONSCIENTE">Inconsciente / Mente</option>
+                    <option value="EMOCIONAL">Emocional / Amor</option>
+                    <option value="RESPIRACION">Respiracion / Meditacion</option>
+                    <option value="MIGRANAS">Migranas / Dolor</option>
+                    <option value="CRONICA">Enfermedad Cronica</option>
+                  </select>
+                </div>
+
+                {/* Generate Button */}
+                <div className="flex items-end">
+                  <button onClick={async()=>{
+                    setScriptLoading(true);
+                    const topPosts=igData?.posts?.filter((p:any)=>!scriptTheme||p.theme===scriptTheme).slice(0,10)||[];
+                    try{const r=await fetch("/api/meta/generate-script",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topPosts,theme:scriptTheme,templateType:scriptTemplate})});const d=await r.json();setScripts(d);}catch(e:any){alert(e.message);}
+                    setScriptLoading(false);
+                  }} disabled={scriptLoading} className="w-full bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition disabled:opacity-50">
+                    {scriptLoading?"Generando...":"Generar Guiones"}
+                  </button>
+                </div>
+              </div>
+
+              {!igData&&<p className="text-yellow-400 text-sm">💡 Primero carga los datos de Instagram (tab Instagram) para generar guiones basados en tu contenido real.</p>}
+            </div>
+
+            {/* Generated Scripts */}
+            {scripts&&(
+              <>
+                {/* Pattern Analysis */}
+                {scripts.patternAnalysis&&(
+                  <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-4 mb-5">
+                    <h4 className="text-sm font-semibold text-cyan-400 mb-3">🔬 Patrones de tu Top Content</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-400 mb-2">Hooks que funcionan:</p>
+                        {scripts.patternAnalysis.topHooks?.slice(0,5).map((h:string,i:number)=>(
+                          <p key={i} className="text-sm mb-1 pl-2 border-l-2 border-green-500/50">"{h}"</p>
+                        ))}
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400 mb-2">Mejores tematicas:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {scripts.patternAnalysis.bestThemes?.map((t:string,i:number)=><Badge key={i} text={t} color="bg-purple-500/20 text-purple-300"/>)}
+                        </div>
+                        <p className="text-sm mt-3 text-gray-300">Promedio saves top posts: <span className="text-yellow-400 font-bold">{scripts.patternAnalysis.avgSavesTopPosts}</span></p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Script Cards */}
+                {scripts.scripts?.map((script:any,si:number)=>(
+                  <div key={si} className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-5 mb-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <h4 className="font-bold">Guion {script.variation}: {script.templateName}</h4>
+                      <div className="flex items-center gap-2">
+                        <Badge text={script.theme||"GENERAL"} color="bg-purple-500/20 text-purple-300"/>
+                        <span className="text-xs text-gray-400">⏱ {script.totalDuration}</span>
+                      </div>
+                    </div>
+
+                    {/* Script Sections */}
+                    <div className="space-y-3 mb-4">
+                      {script.sections.map((section:any,i:number)=>(
+                        <div key={i} className="bg-gray-700/30 rounded-lg p-3 border-l-4 border-blue-500/50">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs font-bold text-blue-400">{section.part}</span>
+                            <span className="text-xs text-gray-500">{section.duration}</span>
+                          </div>
+                          <p className="text-sm text-gray-300 italic">{section.instruction}</p>
+                          <textarea className="w-full mt-2 bg-gray-800/80 border border-gray-600/50 rounded px-3 py-2 text-sm text-white placeholder-gray-500 resize-none" rows={2} placeholder={`Escribe tu ${section.part.toLowerCase()} aqui...`}/>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Tips */}
+                    <div className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-yellow-400 mb-1">💡 Tips basados en tu data:</p>
+                      {script.tips?.map((tip:string,i:number)=><p key={i} className="text-xs text-gray-400">• {tip}</p>)}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
         {/* ═══ ACTIONS LOG ═══ */}
         {tab==="actions"&&(
           <div className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-4">
@@ -426,7 +618,7 @@ export default function Dashboard() {
         )}
       </main>
 
-      <footer className="text-center text-gray-600 text-xs py-4 border-t border-gray-800">AKAL Ads Dashboard v3 · Meta Marketing API · Auto-refresh 30min</footer>
+      <footer className="text-center text-gray-600 text-xs py-4 border-t border-gray-800">AKAL Ads Dashboard v4 · Meta Marketing API + Instagram Insights · Auto-refresh 30min</footer>
     </div>
   );
 }

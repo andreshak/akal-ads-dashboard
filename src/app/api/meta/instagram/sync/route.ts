@@ -24,6 +24,35 @@ function classifyTheme(caption: string): string {
   return "GENERAL";
 }
 
+function classifyCTA(caption: string): string {
+  const lower = (caption || "").toLowerCase();
+  // VENTA - links de compra o paginas de venta
+  if (lower.includes("link en bio") && (lower.includes("compra") || lower.includes("inscrib") || lower.includes("regístr") || lower.includes("registr") || lower.includes("masterclass") || lower.includes("programa") || lower.includes("curso"))) return "VENTA";
+  if (lower.includes("página de venta") || lower.includes("pagina de venta") || lower.includes("compra ahora") || lower.includes("comprar") || lower.includes("adquir")) return "VENTA";
+  if (lower.includes("oferta") || lower.includes("descuento") || lower.includes("precio") || lower.includes("inversión") || lower.includes("inversion")) return "VENTA";
+  // LEADS - captacion de datos o registro
+  if (lower.includes("regístrate") || lower.includes("registrate") || lower.includes("inscríbete") || lower.includes("inscribete") || lower.includes("formulario")) return "LEADS";
+  if (lower.includes("desafío") || lower.includes("desafio") || lower.includes("reto") || lower.includes("challenge")) return "LEADS";
+  if (lower.includes("comenta") && (lower.includes("palabra") || lower.includes("sanar") || lower.includes("salud") || lower.includes("quiero") || lower.includes("info") || lower.includes("gratis"))) return "LEADS";
+  if (lower.includes("link en bio") && (lower.includes("gratis") || lower.includes("free") || lower.includes("regalo"))) return "LEADS";
+  // MENSAJES - DM o conversacion
+  if (lower.includes("escríbeme") || lower.includes("escribeme") || lower.includes("manda mensaje") || lower.includes("envía mensaje") || lower.includes("dm") || lower.includes("mensaje directo") || lower.includes("whatsapp")) return "MENSAJES";
+  // TRAFICO - links generales
+  if (lower.includes("link en bio") || lower.includes("link en la bio") || lower.includes("linktree") || lower.includes("ve al link")) return "TRAFICO";
+  if (lower.includes("visita") && (lower.includes("web") || lower.includes("página") || lower.includes("pagina") || lower.includes("sitio"))) return "TRAFICO";
+  // ENGAGEMENT - interaccion
+  if (lower.includes("comenta") || lower.includes("comparte") || lower.includes("guarda") || lower.includes("etiqueta") || lower.includes("menciona") || lower.includes("¿qué opinas") || lower.includes("que opinas") || lower.includes("dime en comentarios")) return "ENGAGEMENT";
+  if (lower.includes("doble tap") || lower.includes("dale like") || lower.includes("sigue") || lower.includes("sígueme") || lower.includes("sigueme")) return "ENGAGEMENT";
+  // AWARENESS - contenido educativo sin CTA claro
+  if (lower.includes("live") || lower.includes("en vivo") || lower.includes("directo")) return "AWARENESS";
+  return "";
+}
+
+function extractLinks(caption: string): string[] {
+  const urlRegex = /(https?:\/\/[^\s]+)/gi;
+  return (caption || "").match(urlRegex) || [];
+}
+
 function classifyAdPotential(engRate: number, saves: number): string {
   if (engRate >= 5 && saves >= 20) return "ESTRELLA";
   if (engRate >= 4 || saves >= 15) return "ALTO";
@@ -101,6 +130,7 @@ export async function POST(req: Request) {
             engagement_rate: engRate,
             theme,
             ad_potential: classifyAdPotential(engRate, saved),
+            cta_category: classifyCTA(caption),
             synced_at: new Date().toISOString(),
           };
         })

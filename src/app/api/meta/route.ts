@@ -4,11 +4,12 @@ const TOKEN = process.env.META_ACCESS_TOKEN!;
 const ACCOUNT = process.env.META_AD_ACCOUNT_ID!;
 const BASE = `https://graph.facebook.com/v22.0/${ACCOUNT}`;
 
-async function fetchMeta(endpoint: string) {
+async function fetchMeta(endpoint: string, fresh = false) {
   const sep = endpoint.includes("?") ? "&" : "?";
-  const res = await fetch(`${BASE}${endpoint}${sep}access_token=${TOKEN}`, {
-    next: { revalidate: 1800 },
-  });
+  const fetchOptions: any = fresh
+    ? { cache: "no-store" }
+    : { next: { revalidate: 300 } }; // 5 minutos default
+  const res = await fetch(`${BASE}${endpoint}${sep}access_token=${TOKEN}`, fetchOptions);
   if (!res.ok) {
     const err = await res.json();
     throw new Error(JSON.stringify(err));
@@ -40,15 +41,17 @@ export async function GET(req: Request) {
     const campaignFields = "campaign_name,campaign_id,spend,impressions,clicks,ctr,cpc,cpm,actions,action_values,cost_per_action_type,purchase_roas,frequency,reach";
     const adFields = `ad_name,ad_id,campaign_name,adset_name,adset_id,spend,impressions,clicks,ctr,cpc,cpm,actions,action_values,cost_per_action_type,purchase_roas,frequency,reach`;
 
+    const fresh = searchParams.get("fresh") === "true";
+
     const [account, campaigns, insightsCurrent, insightsComparison, campaignInsights, adInsights, adsetInsights] =
       await Promise.all([
-        fetchMeta("?fields=name,account_status,currency,timezone_name,amount_spent"),
-        fetchMeta("/campaigns?fields=name,status,objective,daily_budget,lifetime_budget,effective_status,bid_strategy&limit=100"),
-        fetchMeta(`/insights?fields=${insightsFields}${dateParam}`),
-        fetchMeta(`/insights?fields=${insightsFields}&date_preset=${comparisonPreset}`),
-        fetchMeta(`/insights?fields=${campaignFields}&level=campaign${dateParam}&limit=50&filtering=[{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`),
-        fetchMeta(`/insights?fields=${adFields}&level=ad${dateParam}&limit=100&filtering=[{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`),
-        fetchMeta(`/insights?fields=adset_name,adset_id,campaign_name,campaign_id,spend,impressions,clicks,ctr,cpc,cpm,actions,action_values,cost_per_action_type,purchase_roas,frequency,reach&level=adset${dateParam}&limit=100&filtering=[{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`),
+        fetchMeta("?fields=name,account_status,currency,timezone_name,amount_spent", fresh),
+        fetchMeta("/campaigns?fields=name,status,objective,daily_budget,lifetime_budget,effective_status,bid_strategy&limit=100", fresh),
+        fetchMeta(`/insights?fields=${insightsFields}${dateParam}`, fresh),
+        fetchMeta(`/insights?fields=${insightsFields}&date_preset=${comparisonPreset}`, fresh),
+        fetchMeta(`/insights?fields=${campaignFields}&level=campaign${dateParam}&limit=50&filtering=[{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`, fresh),
+        fetchMeta(`/insights?fields=${adFields}&level=ad${dateParam}&limit=100&filtering=[{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`, fresh),
+        fetchMeta(`/insights?fields=adset_name,adset_id,campaign_name,campaign_id,spend,impressions,clicks,ctr,cpc,cpm,actions,action_values,cost_per_action_type,purchase_roas,frequency,reach&level=adset${dateParam}&limit=100&filtering=[{"field":"campaign.effective_status","operator":"IN","value":["ACTIVE"]}]`, fresh),
       ]);
 
     const processPeriod = (raw: any) => {

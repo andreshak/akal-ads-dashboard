@@ -66,17 +66,29 @@ export default function Dashboard() {
   const [historyCursor, setHistoryCursor] = useState<string|null>(null);
   const CTA_OPTIONS = [{id:"VENTA",label:"🛒 Venta",color:"bg-green-500/20 text-green-300"},{id:"LEADS",label:"📋 Leads/Registro",color:"bg-blue-500/20 text-blue-300"},{id:"TRAFICO",label:"🔗 Trafico Web",color:"bg-cyan-500/20 text-cyan-300"},{id:"ENGAGEMENT",label:"💬 Engagement",color:"bg-purple-500/20 text-purple-300"},{id:"AWARENESS",label:"📢 Awareness",color:"bg-yellow-500/20 text-yellow-300"},{id:"MENSAJES",label:"💌 Mensajes",color:"bg-pink-500/20 text-pink-300"}];
 
-  const fetchAll = useCallback(async () => {
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+  const [tick, setTick] = useState(0);
+
+  const fetchAll = useCallback(async (fresh = false) => {
     setLoading(true);
     try {
-      const [r1,r2,r3] = await Promise.all([fetch(`/api/meta?date_preset=${datePreset}`),fetch("/api/meta/trends"),fetch("/api/meta/countries")]);
+      const q = fresh ? "&fresh=true" : "";
+      const [r1,r2,r3] = await Promise.all([
+        fetch(`/api/meta?date_preset=${datePreset}${q}`, { cache: "no-store" }),
+        fetch(`/api/meta/trends?${fresh ? "fresh=true" : ""}`, { cache: "no-store" }),
+        fetch(`/api/meta/countries?${fresh ? "fresh=true" : ""}`, { cache: "no-store" })
+      ]);
       const [d1,d2,d3] = await Promise.all([r1.json(),r2.json(),r3.json()]);
       setData(d1);setTrends(d2.trends||[]);setCountries(d3.countries||[]);
+      setLastUpdate(new Date());
     } catch(e:any){setError(e.message);}
     setLoading(false);
   },[datePreset]);
 
-  useEffect(()=>{fetchAll();},[fetchAll]);
+  // Tick every 10s to update "hace X" label
+  useEffect(() => { const t = setInterval(() => setTick(x => x+1), 10000); return () => clearInterval(t); }, []);
+
+  useEffect(()=>{fetchAll(false);},[fetchAll]);
   useEffect(()=>{const saved=localStorage.getItem("akal-notes");if(saved)setNotes(JSON.parse(saved));const lib=localStorage.getItem("akal-library");if(lib)setLibrary(JSON.parse(lib));},[]);
   const saveNote=(id:string,text:string)=>{const n={...notes,[id]:text};setNotes(n);localStorage.setItem("akal-notes",JSON.stringify(n));setNoteTarget(null);setNoteInput("");};
   const addToLibrary=(post:any,cta?:string)=>{const exists=library.find((p:any)=>p.id===post.id);if(exists)return;const entry={...post,addedAt:new Date().toISOString(),cta:cta||"",markedForAd:false,notes:""};const newLib=[entry,...library];setLibrary(newLib);localStorage.setItem("akal-library",JSON.stringify(newLib));};
@@ -172,7 +184,14 @@ export default function Dashboard() {
               </select>
             )}
             <ExtLink href={adsMgr("campaign","")}>Ads Mgr</ExtLink>
-            <button onClick={fetchAll} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg text-xs font-medium">⟳ Actualizar</button>
+            {lastUpdate && (()=>{
+              const sec = Math.floor((Date.now()-lastUpdate.getTime())/1000);
+              const _ = tick; // force re-render
+              const label = sec < 10 ? "ahora" : sec < 60 ? `hace ${sec}s` : sec < 3600 ? `hace ${Math.floor(sec/60)}min` : `hace ${Math.floor(sec/3600)}h`;
+              const color = sec < 60 ? "bg-green-500/20 text-green-300" : sec < 300 ? "bg-yellow-500/20 text-yellow-300" : "bg-red-500/20 text-red-300";
+              return <span className={`px-2 py-0.5 rounded text-[10px] ${color}`} title={lastUpdate.toLocaleTimeString()}>● {label}</span>;
+            })()}
+            <button onClick={()=>fetchAll(true)} className="bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg text-xs font-medium" title="Fuerza actualizacion desde Meta API (sin cache)">⟳ Actualizar (live)</button>
           </div>
         </div>
       </header>

@@ -4,11 +4,12 @@ const TOKEN = process.env.META_ACCESS_TOKEN!;
 const ACCOUNT = process.env.META_AD_ACCOUNT_ID!;
 const BASE = `https://graph.facebook.com/v22.0/${ACCOUNT}`;
 
-async function fetchMeta(endpoint: string) {
+async function fetchMeta(endpoint: string, fresh = false) {
   const sep = endpoint.includes("?") ? "&" : "?";
-  const res = await fetch(`${BASE}${endpoint}${sep}access_token=${TOKEN}`, {
-    next: { revalidate: 1800 },
-  });
+  const fetchOptions: any = fresh
+    ? { cache: "no-store" }
+    : { next: { revalidate: 300 } }; // 5 minutos default
+  const res = await fetch(`${BASE}${endpoint}${sep}access_token=${TOKEN}`, fetchOptions);
   if (!res.ok) throw new Error(`Meta API error: ${res.status}`);
   return res.json();
 }
@@ -44,18 +45,19 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const datePreset = searchParams.get("date_preset") || "last_7d";
+    const fresh = searchParams.get("fresh") === "true";
     const dp = `&date_preset=${datePreset}`;
 
     const fields = "spend,impressions,clicks,actions,action_values,ctr,cpc,cpm";
 
     // Fetch all breakdowns in parallel
     const [demographics, regions, placement, hourly, dayOfWeek, countries] = await Promise.all([
-      fetchMeta(`/insights?fields=${fields}&breakdowns=age,gender${dp}&limit=100`),
-      fetchMeta(`/insights?fields=${fields}&breakdowns=region${dp}&limit=100`),
-      fetchMeta(`/insights?fields=${fields}&breakdowns=publisher_platform,platform_position${dp}&limit=50`),
-      fetchMeta(`/insights?fields=${fields}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone${dp}&limit=30`),
-      fetchMeta(`/insights?fields=${fields}&breakdowns=dma${dp}&limit=100`).catch(() => ({ data: [] })),
-      fetchMeta(`/insights?fields=${fields}&breakdowns=country${dp}&limit=100`),
+      fetchMeta(`/insights?fields=${fields}&breakdowns=age,gender${dp}&limit=100`, fresh),
+      fetchMeta(`/insights?fields=${fields}&breakdowns=region${dp}&limit=100`, fresh),
+      fetchMeta(`/insights?fields=${fields}&breakdowns=publisher_platform,platform_position${dp}&limit=50`, fresh),
+      fetchMeta(`/insights?fields=${fields}&breakdowns=hourly_stats_aggregated_by_advertiser_time_zone${dp}&limit=30`, fresh),
+      fetchMeta(`/insights?fields=${fields}&breakdowns=dma${dp}&limit=100`, fresh).catch(() => ({ data: [] })),
+      fetchMeta(`/insights?fields=${fields}&breakdowns=country${dp}&limit=100`, fresh),
     ]);
 
     const demo = processBreakdown(demographics.data || [], ["age", "gender"])

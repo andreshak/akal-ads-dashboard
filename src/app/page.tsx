@@ -507,8 +507,17 @@ export default function Dashboard() {
                 <div className="flex items-end">
                   <button onClick={async()=>{
                     setScriptLoading(true);
-                    const topPosts=igData?.posts?.filter((p:any)=>!scriptTheme||p.theme===scriptTheme).slice(0,10)||[];
-                    try{const r=await fetch("/api/meta/generate-script",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topPosts,theme:scriptTheme,templateType:scriptTemplate})});const d=await r.json();setScripts(d);}catch(e:any){alert(e.message);}
+                    try{
+                      // Leer top posts desde Supabase (biblioteca completa)
+                      const libParams=new URLSearchParams({sort:"saves",limit:"15"});
+                      if(scriptTheme)libParams.set("theme",scriptTheme);
+                      const libRes=await fetch(`/api/meta/instagram/library?${libParams}`);
+                      const libData=await libRes.json();
+                      const topPosts=(libData.posts||[]).map((p:any)=>({hook:p.hook,caption:p.caption,saves:p.saves,theme:p.theme,engagementRate:p.engagement_rate}));
+                      const r=await fetch("/api/meta/generate-script",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topPosts,theme:scriptTheme,templateType:scriptTemplate})});
+                      const d=await r.json();
+                      if(d.error){alert("Error: "+d.error);}else{setScripts({...d,_postsUsed:topPosts.length});}
+                    }catch(e:any){alert("Error: "+e.message);}
                     setScriptLoading(false);
                   }} disabled={scriptLoading} className="w-full bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition disabled:opacity-50">
                     {scriptLoading?"Generando...":"Generar Guiones"}
@@ -516,7 +525,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {!igData&&<p className="text-yellow-400 text-sm">💡 Primero carga los datos de Instagram (tab Instagram) para generar guiones basados en tu contenido real.</p>}
+              <p className="text-cyan-400 text-sm">💡 Los guiones se generan analizando tus 3,354 posts en la biblioteca (Supabase). Elige tematica y estructura, luego "Generar Guiones".</p>
+              {scripts?._postsUsed!==undefined&&<p className="text-green-400 text-xs mt-1">✓ Analizados {scripts._postsUsed} posts top de tu biblioteca</p>}
             </div>
 
             {/* Generated Scripts */}

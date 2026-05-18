@@ -57,6 +57,8 @@ export default function Dashboard() {
   const [scripts, setScripts] = useState<any>(null);
   const [scriptTemplate, setScriptTemplate] = useState("HOOK_PREGUNTA");
   const [scriptTheme, setScriptTheme] = useState("");
+  const [scriptCta, setScriptCta] = useState("LEADS");
+  const [scriptFunnel, setScriptFunnel] = useState("TOFU");
   const [scriptLoading, setScriptLoading] = useState(false);
   const [library, setLibrary] = useState<any[]>([]);
   const [igSubTab, setIgSubTab] = useState<"live"|"library">("live");
@@ -475,7 +477,7 @@ export default function Dashboard() {
               <h3 className="text-lg font-bold mb-4">📝 Generador de Guiones para Reels</h3>
               <p className="text-gray-400 text-sm mb-4">Genera guiones basados en tu contenido con mejor rendimiento. Elige una estructura y tematica.</p>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-4">
                 {/* Template Selection */}
                 <div>
                   <label className="text-xs text-gray-400 block mb-1">Estructura del guion</label>
@@ -503,30 +505,53 @@ export default function Dashboard() {
                   </select>
                 </div>
 
+                {/* Funnel Stage */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Etapa del funnel</label>
+                  <select value={scriptFunnel} onChange={e=>setScriptFunnel(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                    <option value="TOFU">TOFU — Que me conozcan</option>
+                    <option value="MOFU">MOFU — Que confien</option>
+                    <option value="BOFU">BOFU — Que compren</option>
+                    <option value="RMK">RMK — Que vuelvan</option>
+                  </select>
+                </div>
+
+                {/* CTA */}
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">Llamado a la accion (CTA)</label>
+                  <select value={scriptCta} onChange={e=>setScriptCta(e.target.value)} className="w-full bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-sm">
+                    <option value="LEADS">📋 Leads — Comenta palabra clave</option>
+                    <option value="VENTA">🛒 Venta — Link programa/masterclass</option>
+                    <option value="TRAFICO">🔗 Trafico — Link en bio</option>
+                    <option value="MENSAJES">💬 Mensajes — Escribeme al DM</option>
+                    <option value="ENGAGEMENT">❤ Engagement — Guarda/comparte</option>
+                    <option value="AWARENESS">📢 Awareness — Solo educar</option>
+                  </select>
+                </div>
+
                 {/* Generate Button */}
                 <div className="flex items-end">
                   <button onClick={async()=>{
                     setScriptLoading(true);
                     try{
-                      // Leer top posts desde Supabase (biblioteca completa)
                       const libParams=new URLSearchParams({sort:"saves",limit:"15"});
                       if(scriptTheme)libParams.set("theme",scriptTheme);
                       const libRes=await fetch(`/api/meta/instagram/library?${libParams}`);
                       const libData=await libRes.json();
                       const topPosts=(libData.posts||[]).map((p:any)=>({hook:p.hook,caption:p.caption,saves:p.saves,theme:p.theme,engagementRate:p.engagement_rate}));
-                      const r=await fetch("/api/meta/generate-script",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topPosts,theme:scriptTheme,templateType:scriptTemplate})});
+                      const r=await fetch("/api/meta/generate-script",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({topPosts,theme:scriptTheme,templateType:scriptTemplate,cta:scriptCta,funnel:scriptFunnel})});
                       const d=await r.json();
                       if(d.error){alert("Error: "+d.error);}else{setScripts({...d,_postsUsed:topPosts.length});}
                     }catch(e:any){alert("Error: "+e.message);}
                     setScriptLoading(false);
                   }} disabled={scriptLoading} className="w-full bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg font-medium transition disabled:opacity-50">
-                    {scriptLoading?"Generando...":"Generar Guiones"}
+                    {scriptLoading?"Generando...":"Generar 15 Guiones"}
                   </button>
                 </div>
               </div>
 
-              <p className="text-cyan-400 text-sm">💡 Los guiones se generan analizando tus 3,354 posts en la biblioteca (Supabase). Elige tematica y estructura, luego "Generar Guiones".</p>
-              {scripts?._postsUsed!==undefined&&<p className="text-green-400 text-xs mt-1">✓ Analizados {scripts._postsUsed} posts top de tu biblioteca</p>}
+              <p className="text-cyan-400 text-sm">💡 Genera 15 guiones reales. Elige <b>estructura</b>, <b>tematica</b>, <b>etapa de funnel</b> y <b>CTA</b> — el cierre y el tono se ajustan a tu objetivo. La seccion PRUEBA usa testimonios reales de alumnos si estan cargados.</p>
+              {scripts?._postsUsed!==undefined&&<p className="text-green-400 text-xs mt-1">✓ {scripts._postsUsed} posts analizados · {scripts?.testimoniosCount||0} testimonios en base · Funnel: {scriptFunnel} · CTA: {scriptCta}</p>}
             </div>
 
             {/* Generated Scripts */}

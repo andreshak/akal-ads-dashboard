@@ -50,7 +50,27 @@ const SCRIPT_TEMPLATES = {
 
 export async function POST(req: Request) {
   try {
-    const { topPosts, theme, templateType } = await req.json();
+    const { topPosts, theme, templateType, cta, funnel } = await req.json();
+
+    // CTA segun objetivo elegido
+    const CTA_TEXTS: Record<string, string> = {
+      LEADS: "Comenta la palabra SANAR y te envio toda la informacion gratis por mensaje. Guarda este video para no perderlo.",
+      VENTA: "El link de mi programa esta en la bio. Si quieres transformar esto de verdad, este es tu momento — cupos limitados.",
+      TRAFICO: "Toda la informacion completa esta en el link de mi bio. Entra ahora y empieza tu proceso.",
+      MENSAJES: "Escribeme la palabra QUIERO por mensaje directo y te ayudo personalmente con tu caso.",
+      ENGAGEMENT: "Guarda este video y compartelo con alguien que lo necesite. Sigueme para mas contenido como este.",
+      AWARENESS: "Sigueme para seguir aprendiendo como sanar de forma natural. Comenta que tema quieres que profundice.",
+    };
+    const ctaText = CTA_TEXTS[cta as string] || CTA_TEXTS.LEADS;
+
+    // Guia de tono segun etapa de funnel
+    const FUNNEL_GUIDE: Record<string, string> = {
+      TOFU: "ETAPA TOFU: no vendas nada. Solo educa, sorprende y genera curiosidad. El objetivo es que te descubran.",
+      MOFU: "ETAPA MOFU: muestra tu metodo y autoridad. Audiencia ya te conoce — genera confianza con resultados.",
+      BOFU: "ETAPA BOFU: aqui SI vendes. Audiencia caliente lista para comprar. Se directo con la oferta.",
+      RMK: "ETAPA RMK: recupera al que no compro. Resuelve la objecion principal y crea urgencia.",
+    };
+    const funnelGuide = FUNNEL_GUIDE[funnel as string] || FUNNEL_GUIDE.TOFU;
 
     const template = SCRIPT_TEMPLATES[templateType as keyof typeof SCRIPT_TEMPLATES] || SCRIPT_TEMPLATES.HOOK_PREGUNTA;
 
@@ -100,6 +120,25 @@ export async function POST(req: Request) {
       }
     } catch {}
 
+    // Testimonios reales de alumnos (para la seccion PRUEBA)
+    let testimonios: string[] = [];
+    try {
+      const { data: tData } = await supabase
+        .from("testimonios")
+        .select("transcription, title")
+        .not("transcription", "is", null)
+        .limit(30);
+      testimonios = (tData || [])
+        .filter((x: any) => x.transcription && x.transcription.length > 40)
+        .map((x: any) => {
+          const txt = x.transcription.replace(/\s+/g, " ").trim();
+          // Primeras 2-3 frases del testimonio
+          return txt.split(/(?<=[.!?])\s/).slice(0, 3).join(" ").substring(0, 320);
+        });
+    } catch {}
+    const pickTestimonio = (i: number) =>
+      testimonios.length ? testimonios[i % testimonios.length] : null;
+
     // Generate 3 script variations
     // Segmenta una transcripcion real en las secciones de la estructura (por peso de duracion)
     const parseSecs = (d: string) => {
@@ -140,15 +179,22 @@ export async function POST(req: Request) {
         isReal: true,
         sourceMetrics: `💾 ${t.saves} saves · 🔄 ${t.shares} shares`,
         sourceLink: t.permalink,
+        cta, funnel,
+        hasTestimonio: !!pickTestimonio(scripts.length),
         sections: template.structure.map((section: any, si: number) => ({
           ...section,
-          suggestedContent: segs[si] || "",
+          // CTA = cierre elegido; PRUEBA = testimonio real de alumno si hay
+          suggestedContent:
+            section.part === "CTA" ? ctaText
+            : section.part === "PRUEBA" && pickTestimonio(scripts.length)
+            ? `[TESTIMONIO ALUMNO]: "${pickTestimonio(scripts.length)}"`
+            : (segs[si] || ""),
         })),
         tips: [
+          funnelGuide,
           `Este guion REAL genero ${t.saves} saves. Adaptalo con tu voz, no lo copies literal.`,
           "Los primeros 3 segundos definen si ven el video — manten el hook tal cual funciono.",
-          "Usa subtitulos siempre (80% ve sin sonido).",
-          "Cambia ejemplos/datos por unos frescos para no repetir contenido identico.",
+          `Cierre ajustado para ${cta || "LEADS"}: cambialo si necesitas otra accion.`,
         ],
       });
     }
@@ -164,10 +210,15 @@ export async function POST(req: Request) {
         theme: theme || "SANACION",
         totalDuration: "45-60 segundos",
         isReal: false,
+        cta, funnel,
         sections: template.structure.map((section: any) => ({
           ...section,
           suggestedContent: section.part === "HOOK"
             ? `Ej: "${exampleHook}"`
+            : section.part === "CTA"
+            ? ctaText
+            : section.part === "PRUEBA" && pickTestimonio(scripts.length)
+            ? `[TESTIMONIO ALUMNO]: "${pickTestimonio(scripts.length)}"`
             : `[${section.instruction}]`,
         })),
         tips: [
@@ -194,6 +245,7 @@ export async function POST(req: Request) {
       // Real spoken scripts from your top viral videos (transcribed with AI)
       realTranscriptions: transcriptions,
       hasTranscriptions: transcriptions.length > 0,
+      testimoniosCount: testimonios.length,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

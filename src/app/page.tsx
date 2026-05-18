@@ -579,7 +579,7 @@ export default function Dashboard() {
                 {/* Script Cards */}
                 {scripts.scripts?.map((script:any,si:number)=>(
                   <div key={si} className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-5 mb-4">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="flex justify-between items-center mb-4 gap-2 flex-wrap">
                       <h4 className="font-bold">Guion {script.variation}: {script.templateName}</h4>
                       <div className="flex items-center gap-2 flex-wrap">
                         {script.isReal
@@ -587,6 +587,14 @@ export default function Dashboard() {
                           : <Badge text="📝 PLANTILLA GUIADA" color="bg-gray-500/20 text-gray-300"/>}
                         <Badge text={script.theme||"GENERAL"} color="bg-purple-500/20 text-purple-300"/>
                         <span className="text-xs text-gray-400">⏱ {script.totalDuration}</span>
+                        <button
+                          onClick={(e)=>{
+                            const txt = `GUION ${script.variation} — ${script.templateName} (${script.theme||""})\n${script.sourceMetrics?script.sourceMetrics+"\n":""}\n` +
+                              script.sections.map((s:any)=>`【${s.part}】 (${s.duration})\n${s.suggestedContent||""}`).join("\n\n");
+                            navigator.clipboard.writeText(txt);
+                            const b=e.currentTarget; const o=b.textContent; b.textContent="✓ Copiado"; setTimeout(()=>{b.textContent=o;},1500);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-xs font-medium">📋 Copiar guion</button>
                       </div>
                     </div>
                     {script.isReal&&(
@@ -596,15 +604,15 @@ export default function Dashboard() {
                       </div>
                     )}
 
-                    {/* Script Sections */}
-                    <div className="space-y-3 mb-4">
+                    {/* Script Sections - texto para leer/grabar */}
+                    <div className="space-y-2 mb-4">
                       {script.sections.map((section:any,i:number)=>(
                         <div key={i} className="bg-gray-700/30 rounded-lg p-3 border-l-4 border-blue-500/50">
-                          <div className="flex justify-between items-center mb-1">
+                          <div className="flex items-center gap-2 mb-1">
                             <span className="text-xs font-bold text-blue-400">{section.part}</span>
-                            <span className="text-xs text-gray-500">{section.duration} · {section.instruction}</span>
+                            <span className="text-[10px] text-gray-500">{section.duration} · {section.instruction}</span>
                           </div>
-                          <textarea key={`${si}-${i}-${(section.suggestedContent||"").slice(0,30)}`} defaultValue={section.suggestedContent||""} className="w-full mt-1 bg-gray-800/80 border border-gray-600/50 rounded px-3 py-2 text-sm text-white placeholder-gray-500 resize-y" rows={section.suggestedContent&&section.suggestedContent.length>120?4:2} placeholder={`Escribe tu ${section.part.toLowerCase()} aqui...`}/>
+                          <p className="text-sm text-gray-100 leading-relaxed whitespace-pre-wrap">{section.suggestedContent||<span className="text-gray-600 italic">(sin contenido para esta seccion)</span>}</p>
                         </div>
                       ))}
                     </div>

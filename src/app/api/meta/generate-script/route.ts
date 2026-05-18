@@ -67,21 +67,37 @@ export async function POST(req: Request) {
         .select("hook, transcription, saves, shares, theme, permalink")
         .not("transcription", "is", null)
         .order("saves", { ascending: false })
-        .limit(8);
+        .limit(20);
       if (theme && theme !== "ALL") q = q.eq("theme", theme);
       const { data } = await q;
+      const mapRow = (p: any) => ({
+        hook: p.hook,
+        saves: p.saves,
+        shares: p.shares,
+        theme: p.theme,
+        permalink: p.permalink,
+        spokenHook: p.transcription.split(/[.!?]\s/)[0]?.substring(0, 150),
+        fullScript: p.transcription.substring(0, 1200),
+      });
       transcriptions = (data || [])
-        .filter((p: any) => p.transcription && p.transcription.length > 30)
-        .map((p: any) => ({
-          hook: p.hook,
-          saves: p.saves,
-          shares: p.shares,
-          theme: p.theme,
-          permalink: p.permalink,
-          // First sentence = the real hook said on camera
-          spokenHook: p.transcription.split(/[.!?]\s/)[0]?.substring(0, 150),
-          fullScript: p.transcription.substring(0, 1200),
-        }));
+        .filter((p: any) => p.transcription && p.transcription.length > 60)
+        .map(mapRow);
+      // Si el tema tiene pocas, completa con top virales de cualquier tema
+      if (transcriptions.length < 15 && theme && theme !== "ALL") {
+        const have = new Set(transcriptions.map((t: any) => t.permalink));
+        const { data: extra } = await supabase
+          .from("ig_content")
+          .select("hook, transcription, saves, shares, theme, permalink")
+          .not("transcription", "is", null)
+          .order("saves", { ascending: false })
+          .limit(30);
+        for (const p of extra || []) {
+          if (transcriptions.length >= 18) break;
+          if (p.transcription && p.transcription.length > 60 && !have.has(p.permalink)) {
+            transcriptions.push(mapRow(p));
+          }
+        }
+      }
     } catch {}
 
     // Generate 3 script variations
@@ -113,7 +129,7 @@ export async function POST(req: Request) {
     const scripts: any[] = [];
 
     // 1) Guiones REALES: top transcripciones del tema segmentadas en la estructura
-    for (const t of transcriptions.slice(0, 3)) {
+    for (const t of transcriptions.slice(0, 15)) {
       const segs = segmentInto(t.fullScript, template.structure);
       if (!segs) continue;
       scripts.push({
@@ -138,7 +154,7 @@ export async function POST(req: Request) {
     }
 
     // 2) Si faltan, completa con plantilla guiada usando hooks reales como inspiracion
-    while (scripts.length < 3) {
+    while (scripts.length < 15) {
       const exampleHook = transcriptions[scripts.length]?.spokenHook
         || hooks[scripts.length]
         || "Escribe un hook que detenga el scroll en 3 segundos";

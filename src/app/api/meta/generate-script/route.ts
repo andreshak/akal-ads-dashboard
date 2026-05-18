@@ -120,22 +120,53 @@ export async function POST(req: Request) {
       }
     } catch {}
 
-    // Testimonios reales de alumnos (para la seccion PRUEBA)
+    // Testimonios reales de alumnos (seccion PRUEBA) — preferir el tema relacionado al guion
+    const TESTI_MAP: Record<string, string[]> = {
+      CANCER: ["SALUD", "CAMBIO_RADICAL", "VIP_DESAFIO", "RETIRO"],
+      INFLAMACION: ["SALUD", "CAMBIO_RADICAL", "VIP_DESAFIO"],
+      CRONICA: ["SALUD", "CAMBIO_RADICAL", "VIP_DESAFIO"],
+      SANACION: ["SALUD", "CAMBIO_RADICAL", "RETIRO"],
+      RESPIRACION: ["SALUD", "EMOCIONAL", "RETIRO"],
+      MIGRANAS: ["SALUD", "CAMBIO_RADICAL"],
+      AGUA_DE_MAR: ["SALUD", "CAMBIO_RADICAL"],
+      MEDICACION: ["SALUD", "CAMBIO_RADICAL"],
+      ALIMENTACION: ["PESO_IDEAL", "SALUD", "CAMBIO_RADICAL"],
+      EMOCIONAL: ["EMOCIONAL", "CAMBIO_RADICAL", "PAREJA", "RETIRO", "VIP_DESAFIO"],
+      INCONSCIENTE: ["EMOCIONAL", "CAMBIO_RADICAL", "VIP_DESAFIO"],
+      MENTE: ["EMOCIONAL", "CAMBIO_RADICAL", "VIP_DESAFIO"],
+      ESTRES: ["EMOCIONAL", "SALUD", "RETIRO"],
+      DESARROLLO_PERSONAL: ["CAMBIO_RADICAL", "EMOCIONAL", "VIP_DESAFIO"],
+    };
+    const preferred = TESTI_MAP[(theme as string) || ""] || ["SALUD", "CAMBIO_RADICAL", "VIP_DESAFIO"];
     let testimonios: string[] = [];
+    const cleanTesti = (x: any) =>
+      x.transcription.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s/).slice(0, 3).join(" ").substring(0, 340);
     try {
-      const { data: tData } = await supabase
+      // 1) Testimonios del tema preferido
+      const { data: tPref } = await supabase
         .from("testimonios")
-        .select("transcription, title")
+        .select("transcription, theme")
         .not("transcription", "is", null)
-        .limit(30);
-      testimonios = (tData || [])
-        .filter((x: any) => x.transcription && x.transcription.length > 40)
-        .map((x: any) => {
-          const txt = x.transcription.replace(/\s+/g, " ").trim();
-          // Primeras 2-3 frases del testimonio
-          return txt.split(/(?<=[.!?])\s/).slice(0, 3).join(" ").substring(0, 320);
-        });
+        .in("theme", preferred)
+        .limit(40);
+      testimonios = (tPref || [])
+        .filter((x: any) => x.transcription && x.transcription.length > 50)
+        .map(cleanTesti);
+      // 2) Si hay pocos, completa con cualquiera
+      if (testimonios.length < 15) {
+        const { data: tAny } = await supabase
+          .from("testimonios").select("transcription")
+          .not("transcription", "is", null).limit(40);
+        for (const x of tAny || []) {
+          if (x.transcription && x.transcription.length > 50) {
+            const c = cleanTesti(x);
+            if (!testimonios.includes(c)) testimonios.push(c);
+          }
+        }
+      }
     } catch {}
+    // Mezclar para variar
+    testimonios = testimonios.sort(() => Math.random() - 0.5);
     const pickTestimonio = (i: number) =>
       testimonios.length ? testimonios[i % testimonios.length] : null;
 

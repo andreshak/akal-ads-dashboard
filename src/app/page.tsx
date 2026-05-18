@@ -554,6 +554,28 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                {/* REAL Transcriptions of top viral videos */}
+                {scripts.hasTranscriptions&&scripts.realTranscriptions?.length>0&&(
+                  <div className="bg-gradient-to-br from-purple-900/20 to-gray-800/60 rounded-xl border border-purple-500/30 p-4 mb-5">
+                    <h4 className="text-sm font-semibold text-purple-300 mb-1">🎙 Guiones REALES de tus videos virales (transcritos con IA)</h4>
+                    <p className="text-xs text-gray-400 mb-3">Esto es lo que realmente DICES hablando en tus reels mas guardados. Usalos como base para escribir nuevos.</p>
+                    <div className="space-y-3">
+                      {scripts.realTranscriptions.map((t:any,i:number)=>(
+                        <details key={i} className="bg-gray-900/40 rounded-lg border border-gray-700/50">
+                          <summary className="cursor-pointer p-3 text-sm flex justify-between items-center hover:bg-gray-800/40">
+                            <span className="font-medium truncate flex-1">"{t.spokenHook}..."</span>
+                            <span className="text-xs text-gray-400 ml-2 shrink-0">💾 {t.saves} · 🔄 {t.shares} · <a href={t.permalink} target="_blank" className="text-blue-400" onClick={e=>e.stopPropagation()}>ver ↗</a></span>
+                          </summary>
+                          <div className="p-3 pt-0 border-t border-gray-700/30">
+                            <Badge text={t.theme||"?"} color="bg-purple-500/20 text-purple-300"/>
+                            <p className="text-sm text-gray-300 mt-2 whitespace-pre-wrap leading-relaxed">{t.fullScript}</p>
+                          </div>
+                        </details>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Script Cards */}
                 {scripts.scripts?.map((script:any,si:number)=>(
                   <div key={si} className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-5 mb-4">

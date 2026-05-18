@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 // Script templates based on proven patterns from top-performing content
 const SCRIPT_TEMPLATES = {
@@ -58,6 +59,31 @@ export async function POST(req: Request) {
     const themes = topPosts?.map((p: any) => p.theme).filter(Boolean) || [];
     const avgSaves = topPosts?.reduce((s: number, p: any) => s + (p.saves || 0), 0) / (topPosts?.length || 1);
 
+    // Pull REAL transcriptions of top viral videos (the actual spoken script that worked)
+    let transcriptions: any[] = [];
+    try {
+      let q = supabase
+        .from("ig_content")
+        .select("hook, transcription, saves, shares, theme, permalink")
+        .not("transcription", "is", null)
+        .order("saves", { ascending: false })
+        .limit(8);
+      if (theme && theme !== "ALL") q = q.eq("theme", theme);
+      const { data } = await q;
+      transcriptions = (data || [])
+        .filter((p: any) => p.transcription && p.transcription.length > 30)
+        .map((p: any) => ({
+          hook: p.hook,
+          saves: p.saves,
+          shares: p.shares,
+          theme: p.theme,
+          permalink: p.permalink,
+          // First sentence = the real hook said on camera
+          spokenHook: p.transcription.split(/[.!?]\s/)[0]?.substring(0, 150),
+          fullScript: p.transcription.substring(0, 1200),
+        }));
+    } catch {}
+
     // Generate 3 script variations
     const scripts = [];
     for (let i = 0; i < 3; i++) {
@@ -94,6 +120,9 @@ export async function POST(req: Request) {
         bestThemes: [...new Set(themes)],
         avgSavesTopPosts: Math.round(avgSaves),
       },
+      // Real spoken scripts from your top viral videos (transcribed with AI)
+      realTranscriptions: transcriptions,
+      hasTranscriptions: transcriptions.length > 0,
     });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });

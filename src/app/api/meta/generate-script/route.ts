@@ -85,27 +85,82 @@ export async function POST(req: Request) {
     } catch {}
 
     // Generate 3 script variations
-    const scripts = [];
-    for (let i = 0; i < 3; i++) {
-      const script = {
-        variation: i + 1,
+    // Segmenta una transcripcion real en las secciones de la estructura (por peso de duracion)
+    const parseSecs = (d: string) => {
+      const m = (d || "").match(/(\d+)-(\d+)/);
+      return m ? parseInt(m[2]) - parseInt(m[1]) : 10;
+    };
+    const segmentInto = (fullText: string, sections: any[]) => {
+      const sentences = (fullText || "")
+        .replace(/\s+/g, " ")
+        .split(/(?<=[.!?])\s+/)
+        .filter((s) => s.trim().length > 2);
+      if (sentences.length === 0) return null;
+      const weights = sections.map((s) => parseSecs(s.duration));
+      const totalW = weights.reduce((a, b) => a + b, 0);
+      const out: string[] = [];
+      let idx = 0;
+      sections.forEach((_, si) => {
+        const take = si === sections.length - 1
+          ? sentences.length - idx
+          : Math.max(1, Math.round((weights[si] / totalW) * sentences.length));
+        out.push(sentences.slice(idx, idx + take).join(" ").trim() || "...");
+        idx += take;
+      });
+      return out;
+    };
+
+    const scripts: any[] = [];
+
+    // 1) Guiones REALES: top transcripciones del tema segmentadas en la estructura
+    for (const t of transcriptions.slice(0, 3)) {
+      const segs = segmentInto(t.fullScript, template.structure);
+      if (!segs) continue;
+      scripts.push({
+        variation: scripts.length + 1,
+        templateName: template.name,
+        theme: t.theme || theme || "GENERAL",
+        totalDuration: "45-60 segundos",
+        isReal: true,
+        sourceMetrics: `💾 ${t.saves} saves · 🔄 ${t.shares} shares`,
+        sourceLink: t.permalink,
+        sections: template.structure.map((section: any, si: number) => ({
+          ...section,
+          suggestedContent: segs[si] || "",
+        })),
+        tips: [
+          `Este guion REAL genero ${t.saves} saves. Adaptalo con tu voz, no lo copies literal.`,
+          "Los primeros 3 segundos definen si ven el video — manten el hook tal cual funciono.",
+          "Usa subtitulos siempre (80% ve sin sonido).",
+          "Cambia ejemplos/datos por unos frescos para no repetir contenido identico.",
+        ],
+      });
+    }
+
+    // 2) Si faltan, completa con plantilla guiada usando hooks reales como inspiracion
+    while (scripts.length < 3) {
+      const exampleHook = transcriptions[scripts.length]?.spokenHook
+        || hooks[scripts.length]
+        || "Escribe un hook que detenga el scroll en 3 segundos";
+      scripts.push({
+        variation: scripts.length + 1,
         templateName: template.name,
         theme: theme || "SANACION",
         totalDuration: "45-60 segundos",
-        sections: template.structure.map((section) => ({
+        isReal: false,
+        sections: template.structure.map((section: any) => ({
           ...section,
-          suggestedContent: `[Escribe tu contenido para: ${section.instruction}]`,
+          suggestedContent: section.part === "HOOK"
+            ? `Ej: "${exampleHook}"`
+            : `[${section.instruction}]`,
         })),
-        inspirationHooks: hooks.slice(0, 5),
         tips: [
-          "Los primeros 3 segundos determinan si ven el video o no",
-          "Habla directo a camara, con conviccion",
-          "Usa subtitulos - 80% ve sin sonido",
-          `Tus posts con mas saves (${Math.round(avgSaves)} promedio) hablan de: ${[...new Set(themes)].join(", ")}`,
-          "Termina siempre con CTA claro: 'Guarda este video', 'Comenta SANAR', 'Link en bio'",
+          "Plantilla guiada — completa cada seccion con tu contenido.",
+          `Hooks que funcionan en tu cuenta: ${hooks.slice(0, 3).map((h: string) => `"${h}"`).join(" · ")}`,
+          `Tus posts top hablan de: ${[...new Set(themes)].slice(0, 5).join(", ")}`,
+          "Termina con CTA claro: 'Guarda esto', 'Comenta SANAR', 'Link en bio'.",
         ],
-      };
-      scripts.push(script);
+      });
     }
 
     return NextResponse.json({

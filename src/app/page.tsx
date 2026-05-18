@@ -581,11 +581,20 @@ export default function Dashboard() {
                   <div key={si} className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-5 mb-4">
                     <div className="flex justify-between items-center mb-4">
                       <h4 className="font-bold">Guion {script.variation}: {script.templateName}</h4>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {script.isReal
+                          ? <Badge text="✅ GUION REAL PROBADO" color="bg-green-500/20 text-green-300"/>
+                          : <Badge text="📝 PLANTILLA GUIADA" color="bg-gray-500/20 text-gray-300"/>}
                         <Badge text={script.theme||"GENERAL"} color="bg-purple-500/20 text-purple-300"/>
                         <span className="text-xs text-gray-400">⏱ {script.totalDuration}</span>
                       </div>
                     </div>
+                    {script.isReal&&(
+                      <div className="bg-green-500/5 border border-green-500/20 rounded-lg p-2 mb-3 flex justify-between items-center">
+                        <span className="text-xs text-green-300">{script.sourceMetrics} — guion transcrito de un video que SI funciono</span>
+                        {script.sourceLink&&<a href={script.sourceLink} target="_blank" className="text-xs text-blue-400 hover:underline">ver original ↗</a>}
+                      </div>
+                    )}
 
                     {/* Script Sections */}
                     <div className="space-y-3 mb-4">
@@ -593,10 +602,9 @@ export default function Dashboard() {
                         <div key={i} className="bg-gray-700/30 rounded-lg p-3 border-l-4 border-blue-500/50">
                           <div className="flex justify-between items-center mb-1">
                             <span className="text-xs font-bold text-blue-400">{section.part}</span>
-                            <span className="text-xs text-gray-500">{section.duration}</span>
+                            <span className="text-xs text-gray-500">{section.duration} · {section.instruction}</span>
                           </div>
-                          <p className="text-sm text-gray-300 italic">{section.instruction}</p>
-                          <textarea className="w-full mt-2 bg-gray-800/80 border border-gray-600/50 rounded px-3 py-2 text-sm text-white placeholder-gray-500 resize-none" rows={2} placeholder={`Escribe tu ${section.part.toLowerCase()} aqui...`}/>
+                          <textarea key={`${si}-${i}-${(section.suggestedContent||"").slice(0,30)}`} defaultValue={section.suggestedContent||""} className="w-full mt-1 bg-gray-800/80 border border-gray-600/50 rounded px-3 py-2 text-sm text-white placeholder-gray-500 resize-y" rows={section.suggestedContent&&section.suggestedContent.length>120?4:2} placeholder={`Escribe tu ${section.part.toLowerCase()} aqui...`}/>
                         </div>
                       ))}
                     </div>

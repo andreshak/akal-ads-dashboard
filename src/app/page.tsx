@@ -576,6 +576,23 @@ export default function Dashboard() {
                   </div>
                 )}
 
+                {/* Copiar TODOS */}
+                {scripts.scripts?.length>0&&(
+                  <div className="sticky top-14 z-30 bg-gray-900/95 backdrop-blur border border-blue-500/30 rounded-xl p-3 mb-4 flex justify-between items-center">
+                    <span className="text-sm font-semibold">📝 {scripts.scripts.length} guiones generados</span>
+                    <button
+                      onClick={(e)=>{
+                        const all = scripts.scripts.map((sc:any)=>
+                          `═══════════════════════════════\nGUION ${sc.variation} — ${sc.templateName} (${sc.theme||""})\n${sc.sourceMetrics?sc.sourceMetrics+"\n":""}═══════════════════════════════\n` +
+                          sc.sections.map((s:any)=>`【${s.part}】 (${s.duration})\n${s.suggestedContent||""}`).join("\n\n")
+                        ).join("\n\n\n");
+                        navigator.clipboard.writeText(all);
+                        const b=e.currentTarget; const o=b.textContent; b.textContent="✓ Copiados los "+scripts.scripts.length+" guiones"; setTimeout(()=>{b.textContent=o;},2000);
+                      }}
+                      className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg text-sm font-bold">📋 Copiar TODOS los guiones</button>
+                  </div>
+                )}
+
                 {/* Script Cards */}
                 {scripts.scripts?.map((script:any,si:number)=>(
                   <div key={si} className="bg-gray-800/60 rounded-xl border border-gray-700/50 p-5 mb-4">
